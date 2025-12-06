@@ -2,7 +2,7 @@ import admin from "firebase-admin";
 
 if (!admin.apps.length) {
   const decoded = Buffer.from(
-    process.env.FIREBASE_SERVICE_ACCOUNT_BASE64,
+    process.env.FIREBASE_SERVICE_ACCOUNT,
     "base64"
   ).toString("utf8");
 
