@@ -1,97 +1,92 @@
-import { db } from "../services/firebaseService";
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  doc,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
-
+// src/controllers/PaymentController.js
 export default class PaymentController {
   constructor() {
-    this.collectionRef = collection(db, "payments");
+    this.apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
   }
 
-  // 🔹 Démarrer le paiement (via backend)
+  /**
+   * Créer un paiement via le backend
+   * @param {number} amount - Montant en TND
+   * @param {string} courseId - ID du cours
+   * @param {string} userId - ID de l'utilisateur
+   * @returns {Promise<Object>} - { status, token, paymentUrl }
+   */
   async startPayment(amount, courseId, userId) {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/payments/create`, {
+      const response = await fetch(`${this.apiUrl}/api/payments/create`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, courseId, userId }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          amount,
+          courseId,
+          userId,
+        }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Payment creation failed");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erreur lors de la création du paiement");
       }
 
-      console.log("✅ Payment created:", data);
+      const data = await response.json();
       return data;
-    } catch (err) {
-      console.error("❌ startPayment error:", err);
-      throw err;
+    } catch (error) {
+      console.error("❌ PaymentController startPayment error:", error);
+      throw error;
     }
   }
 
-  // 🔹 Vérifier le paiement et mettre à jour Firestore
-  async verifyPayment(token) {
+  /**
+   * Vérifier le statut d'un paiement
+   * @param {string} token - Token du paiement Paymee
+   * @returns {Promise<Object>} - { status: "pending" | "paid", courseId? }
+   */
+  async checkPaymentStatus(token) {
     try {
-      console.log("🔍 Verifying payment:", token);
+      const response = await fetch(`${this.apiUrl}/api/payments/check/${token}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      // Appeler le backend pour vérifier le statut
-      const res = await fetch(`${BACKEND_URL}/api/payments/${token}/check`);
-      
-      if (!res.ok) {
-        throw new Error("Failed to check payment status");
+      if (!response.ok) {
+        throw new Error("Erreur lors de la vérification du paiement");
       }
 
-      const data = await res.json();
-      
-      console.log("💡 Payment check result:", data);
-
-      if (data.status === "paid") {
-        return {
-          success: true,
-          status: "paid",
-          courseId: data.courseId,
-          userId: data.userId,
-        };
-      }
-
-      return {
-        success: false,
-        status: data.status || "pending",
-      };
-
-    } catch (err) {
-      console.error("❌ verifyPayment error:", err);
-      return { 
-        success: false, 
-        error: err.message,
-        status: "error"
-      };
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("❌ PaymentController checkPaymentStatus error:", error);
+      throw error;
     }
   }
 
-  // 🔹 Récupérer tous les paiements d'un utilisateur
+  /**
+   * Récupérer tous les paiements d'un utilisateur (optionnel)
+   * @param {string} userId - ID de l'utilisateur
+   * @returns {Promise<Array>} - Liste des paiements
+   */
   async getUserPayments(userId) {
     try {
-      const q = query(this.collectionRef, where("userId", "==", userId));
-      const snapshot = await getDocs(q);
-      
-      return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-    } catch (err) {
-      console.error("❌ getUserPayments error:", err);
-      throw err;
+      const response = await fetch(`${this.apiUrl}/api/payments/user/${userId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Erreur lors de la récupération des paiements");
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("❌ PaymentController getUserPayments error:", error);
+      throw error;
     }
   }
 }

@@ -20,6 +20,7 @@ export default function PaymentPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [owns, setOwns] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const courseId = searchParams.get("courseId");
 
@@ -69,23 +70,42 @@ export default function PaymentPage() {
     setError("");
 
     try {
+      console.log("💳 Démarrage du paiement...");
+      
       // Créer le paiement via backend
       const paymentRes = await paymentCtrl.startPayment(course.price, course.id, user.uid);
 
+      console.log("📥 Réponse paiement:", paymentRes);
+
+      // ✅ Mode DEV : Paiement auto-validé
+      if (paymentRes.status === "auto_validated") {
+        setSuccess(true);
+        setProcessing(false);
+        
+        console.log("✅ Paiement auto-validé !");
+        
+        // Attendre 3 secondes pour afficher le message de succès
+        setTimeout(() => {
+          console.log("🔄 Redirection vers le cours...");
+          navigate(`/lesson/${course.id}`);
+        }, 3000);
+        
+        return;
+      }
+
+      // Mode production : redirection vers Paymee
       if (paymentRes.status === "pending" && paymentRes.paymentUrl) {
-        // Stocker temporairement les infos de paiement
         sessionStorage.setItem(
           "pendingPayment",
           JSON.stringify({
             token: paymentRes.token,
             courseId: course.id,
             userId: user.uid,
+            paymentUrl: paymentRes.paymentUrl,
           })
         );
 
-        // Redirection vers Paymee avec return_url vers ton callback
-        const returnUrl = `${window.location.origin}/payment-callback`;
-        window.location.href = `${paymentRes.paymentUrl}&return_url=${encodeURIComponent(returnUrl)}`;
+        window.location.href = paymentRes.paymentUrl;
       } else {
         setError("Erreur lors de la création du paiement");
         setProcessing(false);
@@ -127,6 +147,44 @@ export default function PaymentPage() {
         <div className="admin-lesson-wrapper">
           <div className="alert alert-success">✅ Vous possédez déjà ce cours !</div>
           <p className="text-center mt-4">Redirection en cours...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Succès du paiement (mode DEV)
+  if (success) {
+    return (
+      <div className="page-container">
+        <div className="admin-lesson-wrapper max-w-2xl mx-auto">
+          <div className="payment-summary-card text-center">
+            <div className="success-animation mb-6">
+              <div className="checkmark-circle">
+                <div className="checkmark"></div>
+              </div>
+            </div>
+            
+            <h2 className="text-3xl font-bold text-green-600 mb-4">
+              🎉 Paiement confirmé !
+            </h2>
+            
+            <p className="text-lg text-gray-700 mb-4">
+              Votre cours <strong>{course?.title}</strong> a été débloqué.
+            </p>
+            
+            <div className="success-details">
+              <p className="text-gray-600">
+                📧 Un email de confirmation vous a été envoyé.
+              </p>
+              <p className="text-gray-600 mt-2">
+                🔄 Redirection automatique dans 3 secondes...
+              </p>
+            </div>
+
+            <div className="loading-spinner mt-6">
+              <div className="spinner"></div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -176,10 +234,10 @@ export default function PaymentPage() {
                 {processing ? (
                   <>
                     <div className="spinner-small inline-block mr-2"></div>
-                    Redirection vers Paymee...
+                    Traitement en cours...
                   </>
                 ) : (
-                  <>💳 Procéder au paiement</>
+                  <>💳 Confirmer le paiement</>
                 )}
               </button>
 
@@ -194,11 +252,11 @@ export default function PaymentPage() {
 
             <div className="payment-info mt-6 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-gray-700">
-                🔒 <strong>Paiement sécurisé</strong> par Paymee
+                🔒 <strong>Mode développement</strong>
               </p>
               <p className="text-xs text-gray-600 mt-2">
-                Vous serez redirigé vers la plateforme de paiement sécurisée Paymee
-                pour finaliser votre achat.
+                Le paiement sera validé automatiquement sans redirection vers Paymee.
+                En production, vous serez redirigé vers la plateforme de paiement sécurisée.
               </p>
             </div>
           </div>
@@ -212,12 +270,87 @@ export default function PaymentPage() {
           padding: 2rem;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .divider { height: 1px; background: #e5e7eb; margin: 1rem 0; }
-        .payment-row { display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem; gap: 1rem; }
-        .payment-row .label { color: #6b7280; font-size: 0.95rem; min-width: 120px; }
-        .payment-row .value { text-align: right; flex: 1; }
-        .spinner-small { width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .divider { 
+          height: 1px; 
+          background: #e5e7eb; 
+          margin: 1rem 0; 
+        }
+        .payment-row { 
+          display: flex; 
+          justify-content: space-between; 
+          align-items: start; 
+          margin-bottom: 1rem; 
+          gap: 1rem; 
+        }
+        .payment-row .label { 
+          color: #6b7280; 
+          font-size: 0.95rem; 
+          min-width: 120px; 
+        }
+        .payment-row .value { 
+          text-align: right; 
+          flex: 1; 
+        }
+        .spinner-small { 
+          width: 16px; 
+          height: 16px; 
+          border: 2px solid #fff; 
+          border-top-color: transparent; 
+          border-radius: 50%; 
+          animation: spin 0.8s linear infinite; 
+        }
+        .loading-spinner {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+        .spinner {
+          width: 40px;
+          height: 40px;
+          border: 4px solid #e5e7eb;
+          border-top-color: #3b82f6;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+        .success-animation {
+          display: flex;
+          justify-content: center;
+        }
+        .checkmark-circle {
+          width: 100px;
+          height: 100px;
+          border-radius: 50%;
+          background: #4CAF50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: scaleIn 0.5s ease-out;
+        }
+        .checkmark {
+          width: 50px;
+          height: 50px;
+          border-right: 5px solid white;
+          border-bottom: 5px solid white;
+          transform: rotate(45deg) translateY(-10px);
+          animation: checkmark 0.5s ease-out 0.3s;
+        }
+        .success-details {
+          background: #f0fdf4;
+          padding: 1.5rem;
+          border-radius: 8px;
+          margin: 1.5rem 0;
+        }
+        @keyframes spin { 
+          to { transform: rotate(360deg); } 
+        }
+        @keyframes scaleIn {
+          from { transform: scale(0); }
+          to { transform: scale(1); }
+        }
+        @keyframes checkmark {
+          from { height: 0; }
+          to { height: 50px; }
+        }
       `}</style>
     </div>
   );

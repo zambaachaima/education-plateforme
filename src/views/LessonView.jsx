@@ -5,6 +5,7 @@ import { getAuth } from "firebase/auth";
 import LessonController from "../controllers/LessonController";
 import PurchaseController from "../controllers/PurchaseController";
 
+
 export default function LessonView() {
   const { courseId } = useParams();
   const navigate = useNavigate();
@@ -83,9 +84,10 @@ export default function LessonView() {
     <div className="page-container">
       <div className="admin-lesson-wrapper">
         <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => navigate(-1)} className="btn btn-back">
-            ← Retour
-          </button>
+         <button onClick={() => navigate('/main')} className="btn btn-back">
+          ← Retour
+        </button>
+
           <h1 className="page-title">Leçons du cours</h1>
         </div>
 
